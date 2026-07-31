@@ -1,0 +1,6 @@
+{
+  "name": "Fast and Fluent English",
+  "description": "English language coaching website featuring courses, instructor profile, free demo booking via WhatsApp, and FAQs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
