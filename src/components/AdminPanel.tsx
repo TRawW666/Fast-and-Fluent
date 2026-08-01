@@ -27,10 +27,14 @@ import {
   ExternalLink,
   Paperclip,
   Image as ImageIcon,
+  Award,
+  UserCheck,
+  AlertCircle,
+  XCircle,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Student, Booking, ClassItem, HomeworkSubmission } from '../types';
+import { Student, Booking, ClassItem, HomeworkSubmission, AttendanceRecord } from '../types';
 
 interface AdminPanelProps {
   onGoHome: () => void;
@@ -53,6 +57,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
   const [loadingStudents, setLoadingStudents] = useState<boolean>(true);
   const [studentsError, setStudentsError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Attendance & Curriculum State Across All Courses
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [allClasses, setAllClasses] = useState<ClassItem[]>([]);
 
   // Quick Message State
   const [messagingStudent, setMessagingStudent] = useState<Student | null>(null);
@@ -211,10 +219,251 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
     }
   };
 
+  // Fetch Attendance Records
+  const fetchAttendanceRecords = async () => {
+    try {
+      const { data, error } = await supabase.from('attendance').select('*');
+      if (error) {
+        console.error('Error fetching attendance records:', error);
+      } else {
+        setAttendanceRecords(data || []);
+      }
+    } catch (err) {
+      console.error('Unexpected error loading attendance:', err);
+    }
+  };
+
+  // Fetch All Classes Across All Courses
+  const fetchAllClasses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('*')
+        .order('class_number', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching all classes:', error);
+      } else {
+        setAllClasses(data || []);
+      }
+    } catch (err) {
+      console.error('Unexpected error loading all classes:', err);
+    }
+  };
+
+  // Handle Attendance Upsert
+  const handleUpdateAttendance = async (
+    studentId: string,
+    classId: string,
+    courseName: string,
+    newStatus: 'Pending' | 'Attended' | 'Absent'
+  ) => {
+    // Optimistically update local state immediately
+    setAttendanceRecords((prev) => {
+      const idx = prev.findIndex(
+        (r) => r.student_id === studentId && r.class_id === classId
+      );
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = {
+          ...next[idx],
+          status: newStatus,
+          marked_at: new Date().toISOString(),
+        };
+        return next;
+      } else {
+        return [
+          ...prev,
+          {
+            student_id: studentId,
+            class_id: classId,
+            course_name: courseName,
+            status: newStatus,
+            marked_at: new Date().toISOString(),
+          },
+        ];
+      }
+    });
+
+    try {
+      const { error } = await supabase.from('attendance').upsert(
+        {
+          student_id: studentId,
+          class_id: classId,
+          course_name: courseName,
+          status: newStatus,
+          marked_at: new Date().toISOString(),
+        },
+        { onConflict: 'student_id,class_id' }
+      );
+
+      if (error) {
+        console.error('Error upserting attendance row:', error);
+        fetchAttendanceRecords();
+      } else {
+        // Also mark this course's booking as seen if unseen
+        const courseBooking = bookings.find(
+          (b) => b.student_id === studentId && b.course_name === courseName && b.seen_by_admin === false
+        );
+        if (courseBooking) {
+          handleMarkSingleBookingAsSeen(courseBooking.id);
+        }
+      }
+    } catch (err) {
+      console.error('Unexpected error updating attendance:', err);
+      fetchAttendanceRecords();
+    }
+  };
+
+  // Handle Demo Booking Attendance Update
+  const handleUpdateDemoAttendance = async (
+    bookingId: string,
+    newStatus: 'Pending' | 'Attended' | 'Absent'
+  ) => {
+    // Optimistically update local state and mark as seen
+    setBookings((prev) =>
+      prev.map((b) =>
+        b.id === bookingId ? { ...b, demo_attendance_status: newStatus, seen_by_admin: true } : b
+      )
+    );
+
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ demo_attendance_status: newStatus, seen_by_admin: true })
+        .eq('id', bookingId);
+
+      if (error) {
+        console.error('Error updating demo booking attendance:', error);
+        fetchStudentsAndBookings();
+      }
+    } catch (err) {
+      console.error('Unexpected error updating demo attendance:', err);
+      fetchStudentsAndBookings();
+    }
+  };
+
+  // Mark a single booking as seen
+  const handleMarkSingleBookingAsSeen = async (bookingId: string) => {
+    const booking = bookings.find((b) => b.id === bookingId);
+    if (!booking || booking.seen_by_admin !== false) return;
+
+    setBookings((prev) =>
+      prev.map((b) => (b.id === bookingId ? { ...b, seen_by_admin: true } : b))
+    );
+
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ seen_by_admin: true })
+        .eq('id', bookingId);
+
+      if (error) {
+        console.error('Error marking booking as seen:', error);
+        fetchStudentsAndBookings();
+      }
+    } catch (err) {
+      console.error('Unexpected error marking booking as seen:', err);
+      fetchStudentsAndBookings();
+    }
+  };
+
+  // Mark student's unseen bookings as seen
+  const handleMarkStudentBookingsAsSeen = async (studentId: string) => {
+    const unseenForStudent = bookings.filter(
+      (b) => b.student_id === studentId && b.seen_by_admin === false
+    );
+    if (unseenForStudent.length === 0) return;
+
+    // Optimistically update local state
+    setBookings((prev) =>
+      prev.map((b) =>
+        b.student_id === studentId ? { ...b, seen_by_admin: true } : b
+      )
+    );
+
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ seen_by_admin: true })
+        .eq('student_id', studentId)
+        .eq('seen_by_admin', false);
+
+      if (error) {
+        console.error('Error marking student bookings as seen:', error);
+        fetchStudentsAndBookings();
+      }
+    } catch (err) {
+      console.error('Unexpected error marking bookings as seen:', err);
+      fetchStudentsAndBookings();
+    }
+  };
+
+  // Mark specific homework submission as seen
+  const handleMarkHomeworkAsSeen = async (submissionId: string) => {
+    // Optimistically update local state
+    setAllHomework((prev) =>
+      prev.map((hw) =>
+        hw.id === submissionId ? { ...hw, seen_by_admin: true } : hw
+      )
+    );
+
+    try {
+      const { error } = await supabase
+        .from('homework_submissions')
+        .update({ seen_by_admin: true })
+        .eq('id', submissionId);
+
+      if (error) {
+        console.error('Error marking homework submission as seen:', error);
+        fetchHomeworkSubmissions();
+      }
+    } catch (err) {
+      console.error('Unexpected error marking homework as seen:', err);
+      fetchHomeworkSubmissions();
+    }
+  };
+
+  // Calculate Course Completion Progress
+  const calculateCourseProgress = (studentId: string, courseName: string) => {
+    const courseClasses = allClasses.filter((c) => c.course_name === courseName);
+    const totalClasses = courseClasses.length;
+
+    if (totalClasses === 0) {
+      return {
+        totalClasses: 0,
+        attendedClasses: 0,
+        percentage: 0,
+        isCompleted: false,
+        label: 'No classes scheduled yet',
+      };
+    }
+
+    const attendedClasses = courseClasses.filter((cls) => {
+      const rec = attendanceRecords.find(
+        (r) => r.student_id === studentId && r.class_id === cls.id
+      );
+      return rec?.status === 'Attended';
+    }).length;
+
+    const percentage = Math.round((attendedClasses / totalClasses) * 100);
+    const isCompleted = attendedClasses === totalClasses && totalClasses > 0;
+
+    return {
+      totalClasses,
+      attendedClasses,
+      percentage,
+      isCompleted,
+      label: `${attendedClasses} of ${totalClasses} classes completed (${percentage}%)`,
+    };
+  };
+
   useEffect(() => {
     fetchStudentsAndBookings();
     fetchClasses(selectedCourse);
+    fetchAllClasses();
     fetchHomeworkSubmissions();
+    fetchAttendanceRecords();
 
     // Subscribe to realtime updates
     const channel = supabase
@@ -232,12 +481,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'classes' },
-        () => fetchClasses(selectedCourse)
+        () => {
+          fetchClasses(selectedCourse);
+          fetchAllClasses();
+        }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'homework_submissions' },
         () => fetchHomeworkSubmissions()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'attendance' },
+        () => fetchAttendanceRecords()
       )
       .subscribe();
 
@@ -305,8 +562,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
     setMessageText('');
   };
 
-  const handleAdminOpenHomework = async (filePath: string) => {
+  const handleAdminOpenHomework = async (filePath: string, submissionId?: string) => {
     const fileWindow = window.open('about:blank', '_blank');
+
+    if (submissionId) {
+      handleMarkHomeworkAsSeen(submissionId);
+    }
+
     try {
       const { data, error } = await supabase.storage
         .from('homework')
@@ -475,6 +737,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
       student.phone?.includes(searchQuery)
   );
 
+  const unseenBookingsCount = bookings.filter((b) => b.seen_by_admin === false).length;
+  const unseenHomeworkCount = allHomework.filter((hw) => hw.seen_by_admin === false).length;
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-16 font-sans">
       {/* Main Content Area */}
@@ -495,6 +760,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
               <p className="text-blue-100 text-sm sm:text-base max-w-xl font-medium">
                 Manage registered students, view demo session bookings, and create or edit course curriculum modules.
               </p>
+
+              {/* Unseen Summary Badge */}
+              <div className="flex flex-wrap items-center gap-2.5 mt-3.5">
+                {(unseenBookingsCount > 0 || unseenHomeworkCount > 0) ? (
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-400 text-slate-950 font-black text-xs shadow-sm">
+                    <span className="w-2 h-2 rounded-full bg-slate-900 animate-ping" />
+                    <span>
+                      {unseenBookingsCount} new enrollment{unseenBookingsCount === 1 ? '' : 's'}, {unseenHomeworkCount} new homework file{unseenHomeworkCount === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/10 text-blue-100 text-xs font-semibold backdrop-blur-xs">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>All new enrollments & homework caught up</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             <button
@@ -526,6 +808,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
           >
             <Users className="w-4 h-4" />
             <span>Students Directory ({students.length})</span>
+            {unseenBookingsCount > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black uppercase shadow-2xs">
+                {unseenBookingsCount} NEW
+              </span>
+            )}
           </button>
 
           <button
@@ -552,6 +839,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
           >
             <FileCheck className="w-4 h-4" />
             <span>Homework ({allHomework.length})</span>
+            {unseenHomeworkCount > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black uppercase shadow-2xs">
+                {unseenHomeworkCount} NEW
+              </span>
+            )}
           </button>
         </div>
 
@@ -644,6 +936,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
                 <div className="space-y-6">
                   {filteredStudents.map((student) => {
                     const studentBookings = getStudentBookings(student.id);
+                    const hasUnseenBookings = studentBookings.some((b) => b.seen_by_admin === false);
 
                     return (
                       <div
@@ -656,8 +949,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
                               {(student.full_name || 'S').charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <h3 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+                              <h3 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2 flex-wrap">
                                 <span>{student.full_name || 'Unnamed Student'}</span>
+                                {hasUnseenBookings && (
+                                  <span className="px-2 py-0.5 bg-amber-400 text-slate-950 font-black text-[10px] rounded-md shadow-2xs uppercase">
+                                    NEW
+                                  </span>
+                                )}
                                 <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-100 text-[#1E40AF] rounded-full uppercase">
                                   Student ID: {student.id.slice(0, 8)}...
                                 </span>
@@ -688,7 +986,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
                           <div className="flex items-center gap-2 self-start md:self-center">
                             <button
                               type="button"
-                              onClick={() => handleOpenMessageModal(student)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenMessageModal(student);
+                              }}
                               className="px-3.5 py-1.5 rounded-xl bg-[#1E40AF] hover:bg-blue-900 text-white font-bold text-xs shadow-2xs transition-all flex items-center gap-1.5"
                               id={`message-student-${student.id}`}
                             >
@@ -714,43 +1015,358 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
                               No demo or course bookings recorded yet for this student.
                             </p>
                           ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              {studentBookings.map((b) => (
-                                <div
-                                  key={b.id}
-                                  className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2"
-                                >
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="font-extrabold text-xs text-slate-900 flex items-center gap-1.5">
-                                      <BookOpen className="w-3.5 h-3.5 text-[#1E40AF]" />
-                                      {b.course_name}
-                                    </span>
-                                    <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-[10px] font-extrabold">
-                                      {b.status}
-                                    </span>
-                                  </div>
+                            <div className="space-y-4">
+                              {studentBookings.map((b) => {
+                                const isUnseen = b.seen_by_admin === false;
+                                const isPaidCourse = b.is_paid === true || b.status === 'Enrolled';
+                                const progress = calculateCourseProgress(student.id, b.course_name);
+                                const courseClasses = allClasses
+                                  .filter((c) => c.course_name === b.course_name)
+                                  .sort((a, b) => (a.class_number || 0) - (b.class_number || 0));
 
-                                  <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-slate-600">
-                                    <span className="flex items-center gap-1">
-                                      <Calendar className="w-3 h-3 text-[#1E40AF]" />
-                                      {b.preferred_date || 'No date set'}
-                                    </span>
-                                    <span className="flex items-center gap-1">
-                                      <Clock className="w-3 h-3 text-[#1E40AF]" />
-                                      {b.preferred_time || 'No time slot set'}
-                                    </span>
-                                  </div>
+                                let bookingCardBg = 'bg-white border-slate-200';
+                                if (!isPaidCourse) {
+                                  const demoStatus = b.demo_attendance_status || 'Pending';
+                                  if (demoStatus === 'Attended') {
+                                    bookingCardBg = 'bg-emerald-50/80 border-emerald-200';
+                                  } else if (demoStatus === 'Absent') {
+                                    bookingCardBg = 'bg-red-50/80 border-red-200';
+                                  }
+                                }
 
-                                  {b.message && (
-                                    <div className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 flex items-start gap-1.5 mt-1">
-                                      <MessageSquare className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
-                                      <span className="italic">"{b.message}"</span>
+                                return (
+                                  <div
+                                    key={b.id}
+                                    onClick={() => {
+                                      if (isUnseen) {
+                                        handleMarkSingleBookingAsSeen(b.id);
+                                      }
+                                    }}
+                                    className={`p-5 rounded-2xl border shadow-2xs space-y-4 transition-all ${bookingCardBg}`}
+                                  >
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                                      <div className="flex items-center gap-2">
+                                        <BookOpen className="w-4 h-4 text-[#1E40AF]" />
+                                        <span className="font-extrabold text-sm sm:text-base text-slate-900">
+                                          {b.course_name}
+                                        </span>
+                                        {isUnseen && (
+                                          <span className="px-2 py-0.5 bg-amber-400 text-slate-950 font-black text-[10px] rounded-md shadow-2xs uppercase">
+                                            NEW
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        {isUnseen && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleMarkSingleBookingAsSeen(b.id);
+                                            }}
+                                            className="px-2.5 py-0.5 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-extrabold flex items-center gap-1 border border-amber-300 transition-colors cursor-pointer shadow-2xs"
+                                            title="Mark as seen"
+                                          >
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-amber-700" />
+                                            <span>Mark as seen</span>
+                                          </button>
+                                        )}
+                                        {isPaidCourse && progress.isCompleted && (
+                                          <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-full text-[11px] font-black flex items-center gap-1 shadow-2xs">
+                                            <Award className="w-3.5 h-3.5 text-emerald-600" />
+                                            Course Completed
+                                          </span>
+                                        )}
+                                        <span
+                                          className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold ${
+                                            isPaidCourse
+                                              ? 'bg-emerald-100 text-emerald-800'
+                                              : 'bg-amber-100 text-amber-800'
+                                          }`}
+                                        >
+                                          {isPaidCourse ? 'Enrolled' : b.status || 'Scheduled'}
+                                        </span>
+                                      </div>
                                     </div>
-                                  )}
-                                </div>
-                              ))}
+
+                                    {/* Progress Bar Display for Enrolled Courses */}
+                                    {isPaidCourse && (
+                                      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-2">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs font-bold text-slate-700 gap-1">
+                                          <span className="flex items-center gap-1.5 text-slate-800">
+                                            <UserCheck className="w-4 h-4 text-[#1E40AF]" />
+                                            Course Attendance Progress:
+                                          </span>
+                                          <span className="text-[#1E40AF] font-black text-xs sm:text-sm">
+                                            {progress.label}
+                                          </span>
+                                        </div>
+
+                                        {progress.totalClasses > 0 ? (
+                                          <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden border border-slate-300/60">
+                                            <div
+                                              className="bg-gradient-to-r from-blue-600 via-blue-700 to-emerald-500 h-full rounded-full transition-all duration-300"
+                                              style={{ width: `${progress.percentage}%` }}
+                                            />
+                                          </div>
+                                        ) : (
+                                          <p className="text-xs text-slate-400 italic">No classes scheduled yet</p>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Attendance Marking List for Enrolled Courses */}
+                                    {isPaidCourse && (
+                                      <div className="pt-2">
+                                        <h5 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-2.5 flex items-center gap-1.5">
+                                          <UserCheck className="w-3.5 h-3.5 text-[#1E40AF]" />
+                                          <span>Mark Attendance Per Class ({courseClasses.length} Total Classes)</span>
+                                        </h5>
+
+                                        {courseClasses.length === 0 ? (
+                                          <p className="text-xs text-slate-400 font-medium italic bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                            No classes scheduled yet for this course in Curriculum Management.
+                                          </p>
+                                        ) : (
+                                          <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                                            {courseClasses.map((cls) => {
+                                              const record = attendanceRecords.find(
+                                                (r) => r.student_id === student.id && r.class_id === cls.id
+                                              );
+                                              const currentStatus = record?.status || 'Pending';
+
+                                              let classRowBg = 'bg-slate-50/90 border-slate-200';
+                                              if (currentStatus === 'Attended') {
+                                                classRowBg = 'bg-emerald-50/80 border-emerald-200';
+                                              } else if (currentStatus === 'Absent') {
+                                                classRowBg = 'bg-red-50/80 border-red-200';
+                                              }
+
+                                              return (
+                                                <div
+                                                  key={cls.id}
+                                                  className={`p-3.5 rounded-xl border flex flex-col gap-2.5 transition-colors ${classRowBg}`}
+                                                >
+                                                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                                    <div className="text-xs space-y-0.5">
+                                                      <div className="font-extrabold text-slate-900 flex items-center gap-1.5 flex-wrap">
+                                                        <span className="px-2 py-0.5 bg-blue-100 text-[#1E40AF] rounded-md text-[10px] font-black">
+                                                          Class #{cls.class_number}
+                                                        </span>
+                                                        <span>{cls.title}</span>
+                                                      </div>
+                                                      {(cls.class_date || cls.class_time) && (
+                                                        <div className="text-[11px] text-slate-500 font-medium flex items-center gap-3 pt-0.5">
+                                                          {cls.class_date && (
+                                                            <span className="flex items-center gap-1">
+                                                              <Calendar className="w-3 h-3 text-slate-400" />
+                                                              {cls.class_date}
+                                                            </span>
+                                                          )}
+                                                          {cls.class_time && (
+                                                            <span className="flex items-center gap-1">
+                                                              <Clock className="w-3 h-3 text-slate-400" />
+                                                              {formatDisplayTime(cls.class_time)}
+                                                            </span>
+                                                          )}
+                                                        </div>
+                                                      )}
+                                                      {(cls.zoom_link || cls.ppt_link) && (
+                                                        <div className="flex flex-wrap items-center gap-2 pt-1.5">
+                                                          {cls.zoom_link && (
+                                                            <a
+                                                              href={cls.zoom_link}
+                                                              target="_blank"
+                                                              rel="noopener noreferrer"
+                                                              className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-100 text-[#1E40AF] hover:underline font-bold text-[11px]"
+                                                            >
+                                                              <Video className="w-3 h-3" />
+                                                              <span>Zoom Link</span>
+                                                            </a>
+                                                          )}
+                                                          {cls.ppt_link && (
+                                                            <a
+                                                              href={cls.ppt_link}
+                                                              target="_blank"
+                                                              rel="noopener noreferrer"
+                                                              className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-100 text-amber-900 hover:underline font-bold text-[11px]"
+                                                            >
+                                                              <FileText className="w-3 h-3" />
+                                                              <span>PPT / Presentation</span>
+                                                            </a>
+                                                          )}
+                                                        </div>
+                                                      )}
+                                                    </div>
+
+                                                    {/* Status Buttons */}
+                                                    <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                                                      {(['Pending', 'Attended', 'Absent'] as const).map(
+                                                        (statusVal) => {
+                                                          const isSelected = currentStatus === statusVal;
+
+                                                          let activeClass = '';
+                                                          let inactiveHover = '';
+
+                                                          if (statusVal === 'Attended') {
+                                                            activeClass =
+                                                              'bg-emerald-600 text-white border-emerald-600 shadow-2xs font-black';
+                                                            inactiveHover =
+                                                              'bg-white text-emerald-800 border-slate-200 hover:bg-emerald-50';
+                                                          } else if (statusVal === 'Absent') {
+                                                            activeClass =
+                                                              'bg-red-600 text-white border-red-600 shadow-2xs font-black';
+                                                            inactiveHover =
+                                                              'bg-white text-red-800 border-slate-200 hover:bg-red-50';
+                                                          } else {
+                                                            activeClass =
+                                                              'bg-slate-700 text-white border-slate-700 shadow-2xs font-black';
+                                                            inactiveHover =
+                                                              'bg-white text-slate-600 border-slate-200 hover:bg-slate-100';
+                                                          }
+
+                                                          return (
+                                                            <button
+                                                              key={statusVal}
+                                                              type="button"
+                                                              onClick={() =>
+                                                                handleUpdateAttendance(
+                                                                  student.id,
+                                                                  cls.id,
+                                                                  b.course_name,
+                                                                  statusVal
+                                                                )
+                                                              }
+                                                              className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                                                                isSelected ? activeClass : inactiveHover
+                                                              }`}
+                                                            >
+                                                              {statusVal}
+                                                            </button>
+                                                          );
+                                                        }
+                                                      )}
+                                                    </div>
+                                                  </div>
+
+                                                  {/* Homework Per Class Section */}
+                                                  {(() => {
+                                                    const matchingHw = allHomework.filter(
+                                                      (hw) => hw.student_id === student.id && hw.class_id === cls.id
+                                                    );
+
+                                                    return (
+                                                      <div className="w-full pt-2 border-t border-slate-200/80">
+                                                        <div className="text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
+                                                          <Paperclip className="w-3 h-3 text-[#1E40AF]" />
+                                                          <span>Homework for this class:</span>
+                                                        </div>
+                                                        {matchingHw.length > 0 ? (
+                                                          <div className="space-y-1.5">
+                                                            {matchingHw.map((hw) => (
+                                                              <div
+                                                                key={hw.id}
+                                                                className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-200 text-xs shadow-2xs"
+                                                              >
+                                                                <span className="font-semibold text-slate-800 truncate" title={hw.file_name}>
+                                                                  {hw.file_name}
+                                                                </span>
+                                                                <button
+                                                                  type="button"
+                                                                  onClick={() => handleAdminOpenHomework(hw.file_path)}
+                                                                  className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-[#1E40AF] rounded-md font-bold text-[11px] flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+                                                                >
+                                                                  <ExternalLink className="w-3 h-3" />
+                                                                  <span>View File</span>
+                                                                </button>
+                                                              </div>
+                                                            ))}
+                                                          </div>
+                                                        ) : (
+                                                          <p className="text-[11px] text-slate-400 font-medium italic">
+                                                            No homework submitted yet.
+                                                          </p>
+                                                        )}
+                                                      </div>
+                                                    );
+                                                  })()}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Demo Booking Info & Controls */}
+                                    {!isPaidCourse && (
+                                      <div className="space-y-2 pt-1">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                          <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-slate-600">
+                                            <span className="flex items-center gap-1">
+                                              <Calendar className="w-3 h-3 text-[#1E40AF]" />
+                                              {b.preferred_date || 'No date set'}
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                              <Clock className="w-3 h-3 text-[#1E40AF]" />
+                                              {b.preferred_time || 'No time slot set'}
+                                            </span>
+                                          </div>
+
+                                          {/* Demo Booking Attendance Status Control */}
+                                          <div className="flex items-center gap-1.5 shrink-0">
+                                            <span className="text-[11px] font-extrabold text-slate-600">Attendance:</span>
+                                            <div className="flex items-center gap-1">
+                                              {(['Pending', 'Attended', 'Absent'] as const).map((statusVal) => {
+                                                const currentDemoStatus = b.demo_attendance_status || 'Pending';
+                                                const isSelected = currentDemoStatus === statusVal;
+
+                                                let activeClass = '';
+                                                let inactiveHover = '';
+
+                                                if (statusVal === 'Attended') {
+                                                  activeClass = 'bg-emerald-600 text-white border-emerald-600 shadow-2xs font-black';
+                                                  inactiveHover = 'bg-white text-emerald-800 border-slate-200 hover:bg-emerald-50';
+                                                } else if (statusVal === 'Absent') {
+                                                  activeClass = 'bg-red-600 text-white border-red-600 shadow-2xs font-black';
+                                                  inactiveHover = 'bg-white text-red-800 border-slate-200 hover:bg-red-50';
+                                                } else {
+                                                  activeClass = 'bg-slate-700 text-white border-slate-700 shadow-2xs font-black';
+                                                  inactiveHover = 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100';
+                                                }
+
+                                                return (
+                                                  <button
+                                                    key={statusVal}
+                                                    type="button"
+                                                    onClick={() => handleUpdateDemoAttendance(b.id, statusVal)}
+                                                    className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                                                      isSelected ? activeClass : inactiveHover
+                                                    }`}
+                                                  >
+                                                    {statusVal}
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {b.message && (
+                                      <div className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 flex items-start gap-1.5 mt-1">
+                                        <MessageSquare className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
+                                        <span className="italic">"{b.message}"</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
+
                         </div>
                       </div>
                     );
@@ -1047,6 +1663,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
                     {Object.entries(groupedByStudent).map(([studentId, rawSubmissions]) => {
                       const studentSubmissions = rawSubmissions as HomeworkSubmission[];
                       const student = students.find((s) => s.id === studentId);
+                      const hasUnseenHw = studentSubmissions.some((hw) => hw.seen_by_admin === false);
 
                       // Group student's submissions by course_name
                       const courseGroups = studentSubmissions.reduce((acc, item) => {
@@ -1069,8 +1686,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
                                 {(student?.full_name || 'S').charAt(0).toUpperCase()}
                               </div>
                               <div>
-                                <h4 className="font-extrabold text-base text-slate-900">
-                                  {student?.full_name || 'Student ID: ' + studentId.slice(0, 8)}
+                                <h4 className="font-extrabold text-base text-slate-900 flex items-center gap-2 flex-wrap">
+                                  <span>{student?.full_name || 'Student ID: ' + studentId.slice(0, 8)}</span>
+                                  {hasUnseenHw && (
+                                    <span className="px-2 py-0.5 bg-amber-400 text-slate-950 font-black text-[10px] rounded-md shadow-2xs uppercase">
+                                      NEW
+                                    </span>
+                                  )}
                                 </h4>
                                 <p className="text-xs font-medium text-slate-500">
                                   {student?.email || 'Registered Student'}
@@ -1116,11 +1738,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
                                       const isImage =
                                         file.file_type?.startsWith('image/') ||
                                         /\.(jpg|jpeg|png)$/i.test(file.file_name);
+                                      const isUnseen = file.seen_by_admin === false;
 
                                       return (
                                         <div
                                           key={file.id}
-                                          className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-blue-300 transition-all flex items-center justify-between gap-3"
+                                          className={`p-3.5 rounded-xl border shadow-2xs transition-all flex items-center justify-between gap-3 ${
+                                            isUnseen
+                                              ? 'bg-amber-50/90 border-amber-300'
+                                              : 'bg-white border-slate-200/90 hover:border-blue-300'
+                                          }`}
                                         >
                                           <div className="flex items-center gap-2.5 min-w-0">
                                             <div className="p-2 rounded-lg bg-slate-100 shrink-0">
@@ -1131,12 +1758,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
                                               )}
                                             </div>
                                             <div className="min-w-0">
-                                              <p
-                                                className="text-xs font-bold text-slate-800 truncate"
-                                                title={file.file_name}
-                                              >
-                                                {file.file_name}
-                                              </p>
+                                              <div className="flex items-center gap-1.5">
+                                                <p
+                                                  className="text-xs font-bold text-slate-800 truncate"
+                                                  title={file.file_name}
+                                                >
+                                                  {file.file_name}
+                                                </p>
+                                                {isUnseen && (
+                                                  <span className="px-1.5 py-0.5 bg-amber-400 text-slate-950 font-black text-[9px] rounded-md uppercase shrink-0">
+                                                    NEW
+                                                  </span>
+                                                )}
+                                              </div>
                                               <p className="text-[10px] text-slate-400 font-medium">
                                                 Submitted{' '}
                                                 {new Date(file.uploaded_at).toLocaleDateString('en-US', {
@@ -1152,7 +1786,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
 
                                           <button
                                             type="button"
-                                            onClick={() => handleAdminOpenHomework(file.file_path)}
+                                            onClick={() => handleAdminOpenHomework(file.file_path, file.id)}
                                             className="px-3 py-1.5 rounded-lg bg-[#1E40AF] hover:bg-blue-900 text-white font-bold text-xs transition-all flex items-center gap-1 shrink-0 shadow-2xs"
                                           >
                                             <ExternalLink className="w-3.5 h-3.5 text-yellow-300" />

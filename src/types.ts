@@ -45,6 +45,7 @@ export interface Booking {
   student_id: string;
   course_name: string;
   status: string;
+  demo_attendance_status?: 'Pending' | 'Attended' | 'Absent';
   preferred_date?: string;
   preferred_time?: string;
   message?: string;
@@ -53,6 +54,7 @@ export interface Booking {
   payment_id?: string;
   amount_paid?: number;
   price?: number;
+  seen_by_admin?: boolean;
 }
 
 export interface Student {
@@ -81,10 +83,12 @@ export interface HomeworkSubmission {
   id: string;
   student_id: string;
   course_name: string;
+  class_id?: string | null;
   file_path: string;
   file_name: string;
   file_type: string;
   uploaded_at: string;
+  seen_by_admin?: boolean;
   // Optional joined properties
   student_name?: string;
   student_email?: string;
@@ -97,5 +101,14 @@ export interface Question {
   phone: string;
   question: string;
   created_at?: string;
+}
+
+export interface AttendanceRecord {
+  id?: string;
+  student_id: string;
+  class_id: string;
+  course_name: string;
+  status: 'Pending' | 'Attended' | 'Absent';
+  marked_at?: string;
 }
 
