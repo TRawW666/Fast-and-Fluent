@@ -41,7 +41,6 @@ export const Hero: React.FC<HeroProps> = ({ onBookClick, onViewCoursesClick }) =
           <div className="flex flex-wrap justify-center gap-4 sm:gap-6 w-full max-w-2xl mb-8">
             {[
               'Zero-Fear Speaking Practice',
-              'TESOL Certified Instructor',
               'Personalized Accent & Grammar',
               '100% Practical Conversational Drills'
             ].map((benefit, idx) => (
@@ -70,23 +69,6 @@ export const Hero: React.FC<HeroProps> = ({ onBookClick, onViewCoursesClick }) =
             >
               <span>View Courses</span>
             </button>
-          </div>
-
-          {/* Trust Badges Footer */}
-          <div className="mt-10 pt-6 border-t border-slate-200/80 flex flex-wrap items-center justify-center gap-6 text-slate-600 text-sm">
-            <div className="flex items-center gap-1.5 font-bold text-blue-950">
-              <div className="flex text-yellow-500">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                ))}
-              </div>
-              <span>4.9/5 Rating</span>
-            </div>
-            <span className="text-slate-300 hidden sm:inline">•</span>
-            <div className="flex items-center gap-1.5 font-semibold text-slate-700">
-              <ShieldCheck className="w-4 h-4 text-blue-800" />
-              <span>1,500+ Students Trained</span>
-            </div>
           </div>
 
         </div>

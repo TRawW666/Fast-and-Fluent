@@ -76,3 +76,26 @@ export interface ClassItem {
   duration?: string;
   created_at: string;
 }
+
+export interface HomeworkSubmission {
+  id: string;
+  student_id: string;
+  course_name: string;
+  file_path: string;
+  file_name: string;
+  file_type: string;
+  uploaded_at: string;
+  // Optional joined properties
+  student_name?: string;
+  student_email?: string;
+}
+
+export interface Question {
+  id?: string;
+  student_id?: string | null;
+  full_name: string;
+  phone: string;
+  question: string;
+  created_at?: string;
+}
+

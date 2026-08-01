@@ -13,12 +13,15 @@ import { FAQ } from './components/FAQ';
 import { Footer } from './components/Footer';
 import { StudentPortal } from './components/StudentPortal';
 import { AdminPanel } from './components/AdminPanel';
+import { FloatingAskQuestion } from './components/FloatingAskQuestion';
 import { ADMIN_EMAIL } from './lib/config';
+
 
 function MainApp() {
   const [currentView, setCurrentView] = useState<'home' | 'portal' | 'admin'>('home');
   const [selectedCourse, setSelectedCourse] = useState<string>('Free Demo Class');
-  const { user, isAuthModalOpen, closeAuthModal, authModalMode, requireAuthForDemo } = useAuth();
+  const [autoPurchaseCourse, setAutoPurchaseCourse] = useState<string | null>(null);
+  const { user, isAuthModalOpen, closeAuthModal, authModalMode, openAuthModal, requireAuthForDemo } = useAuth();
   const isAdmin = user?.email === ADMIN_EMAIL;
 
   // Reset to home view if user logs out while on portal or admin page
@@ -40,7 +43,7 @@ function MainApp() {
     const course = courseName || 'Free Demo Class';
 
     const scrollToBooking = () => {
-      setSelectedCourse(course);
+      setSelectedCourse('Free Demo Class');
       setCurrentView('home');
       setTimeout(() => {
         const element = document.getElementById('booking');
@@ -56,8 +59,16 @@ function MainApp() {
         scrollToBooking();
       });
     } else {
-      // Paid course booking opens form directly
-      scrollToBooking();
+      // Paid course card "Book Now" -> purchase flow in Student Portal
+      if (user) {
+        setAutoPurchaseCourse(course);
+        setCurrentView('portal');
+      } else {
+        openAuthModal('signin', () => {
+          setAutoPurchaseCourse(course);
+          setCurrentView('portal');
+        });
+      }
     }
   };
 
@@ -98,6 +109,8 @@ function MainApp() {
           <StudentPortal
             onGoHome={() => setCurrentView('home')}
             onBookDemo={() => handleBookCourse('Free Demo Class')}
+            initialCourseToPurchase={autoPurchaseCourse}
+            onClearAutoPurchase={() => setAutoPurchaseCourse(null)}
           />
         </div>
       ) : (
@@ -138,6 +151,8 @@ function MainApp() {
           <Footer onNavClick={handleNavClick} />
         </>
       )}
+      {/* Floating Ask Question Button */}
+      <FloatingAskQuestion currentView={currentView} />
     </div>
   );
 }

@@ -3,12 +3,12 @@ import { Course, Feature, Testimonial, FAQItem } from '../types';
 export const INSTRUCTOR_INFO = {
   name: 'Sheetal Chauhan',
   role: 'Founder & Head Language Coach',
-  title: 'Certified TESOL/TEFL English Fluency Specialist',
+  title: 'Certified English Fluency Specialist',
   experience: '10+ Years Experience',
   studentsTaught: '1,500+ Professionals & Students',
   bio: `Sheetal Chauhan is an internationally certified English communication coach dedicated to transforming hesitant speakers into fluent, confident communicators. With over a decade of hands-on coaching experience across corporate clients, working professionals, and young learners, Sheetal combines practical conversational psychology with structured grammar and accent refinement.`,
   highlights: [
-    'Certified TESOL/TEFL English Language Trainer',
+    'Certified English Language Trainer',
     'Specialized in Conversational Psychology & Hesitation Removal',
     'Personalized 1-on-1 Feedback & Speech Correction',
     'Proven Track Record with 1,500+ Successful Learners'

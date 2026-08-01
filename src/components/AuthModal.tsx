@@ -16,7 +16,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   defaultMode = 'signin',
   onSuccess,
 }) => {
-  const { pendingDemoBooking } = useAuth();
+  const { pendingDemoBooking, handleAuthSuccess } = useAuth();
   const [mode, setMode] = useState<'signin' | 'signup'>(defaultMode);
   
   // Form fields
@@ -130,7 +130,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setTimeout(() => {
             resetForm();
             if (onSuccess) onSuccess();
-            onClose();
+            handleAuthSuccess();
           }, 600);
         }
       } else {
@@ -157,7 +157,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setTimeout(() => {
             resetForm();
             if (onSuccess) onSuccess();
-            onClose();
+            handleAuthSuccess();
           }, 600);
         }
       }

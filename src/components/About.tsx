@@ -7,7 +7,7 @@ export const About: React.FC = () => {
   const [ref, isInView] = useInView({ threshold: 0.2 });
 
   return (
-    <section id="about" className="py-20 bg-white relative overflow-hidden">
+    <section id="about" className="pt-28 pb-20 bg-white relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div
           ref={ref}
@@ -57,20 +57,10 @@ export const About: React.FC = () => {
 
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-yellow-100 text-blue-950 rounded-full text-xs font-semibold mb-6">
                     <Star className="w-3.5 h-3.5 fill-yellow-500 text-yellow-600" />
-                    <span>TESOL/TEFL Certified Trainer</span>
+                    <span>Certified English Language Trainer</span>
                   </div>
 
-                  {/* Mini Stats Row */}
-                  <div className="grid grid-cols-2 gap-3 w-full border-t border-slate-100 pt-5 text-left">
-                    <div className="bg-blue-50/70 p-3 rounded-xl border border-blue-100/60">
-                      <div className="text-xs text-slate-500 font-medium">Experience</div>
-                      <div className="text-base font-extrabold text-blue-950">10+ Years</div>
-                    </div>
-                    <div className="bg-blue-50/70 p-3 rounded-xl border border-blue-100/60">
-                      <div className="text-xs text-slate-500 font-medium">Learners</div>
-                      <div className="text-base font-extrabold text-blue-950">1,500+ Alumni</div>
-                    </div>
-                  </div>
+
 
                 </div>
 
