@@ -89,6 +89,9 @@ export const BookingForm: React.FC<BookingFormProps> = ({ selectedCourse, onOpen
   };
 
   const proceedWithSubmission = async () => {
+    // Open blank window synchronously in response to user click to prevent popup blocking
+    const waWindow = window.open('about:blank', '_blank');
+
     // If booking Free Demo Class and user is logged in, insert into bookings table
     if (formData.preferredCourse === 'Free Demo Class' && user) {
       try {
@@ -123,8 +126,11 @@ export const BookingForm: React.FC<BookingFormProps> = ({ selectedCourse, onOpen
     const encodedText = encodeURIComponent(waText);
     const whatsappUrl = `https://wa.me/919607405256?text=${encodedText}`;
 
-    // Open WhatsApp in new tab
-    window.open(whatsappUrl, '_blank');
+    if (waWindow) {
+      waWindow.location.href = whatsappUrl;
+    } else {
+      window.open(whatsappUrl, '_blank');
+    }
 
     // Show success confirmation state
     setIsSubmitted(true);

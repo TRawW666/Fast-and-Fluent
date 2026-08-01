@@ -44,23 +44,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('students')
         .select('*')
         .eq('id', currentUser.id)
-        .single();
+        .maybeSingle();
 
       if (data && !error) {
         setStudentProfile(data as StudentProfile);
       } else {
-        // Fallback to user metadata
-        setStudentProfile({
-          id: currentUser.id,
-          full_name: currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || 'Student',
-          email: currentUser.email || '',
-          phone: currentUser.user_metadata?.phone || '',
-        });
+        // No matching row exists in students table yet (e.g. first-time Google sign-in)
+        const fullName =
+          currentUser.user_metadata?.full_name ||
+          currentUser.user_metadata?.name ||
+          currentUser.email?.split('@')[0] ||
+          'Student';
+        const email = currentUser.email || '';
+        const phone = currentUser.user_metadata?.phone || '';
+
+        // Insert new student row for first-time Google sign-in
+        const { data: insertedData, error: insertError } = await supabase
+          .from('students')
+          .insert({
+            id: currentUser.id,
+            full_name: fullName,
+            email: email,
+            phone: phone,
+          })
+          .select()
+          .maybeSingle();
+
+        if (insertedData && !insertError) {
+          setStudentProfile(insertedData as StudentProfile);
+        } else {
+          // If insert failed (e.g., race condition / duplicate key), attempt refetch or fallback
+          const { data: refetched } = await supabase
+            .from('students')
+            .select('*')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+
+          if (refetched) {
+            setStudentProfile(refetched as StudentProfile);
+          } else {
+            setStudentProfile({
+              id: currentUser.id,
+              full_name: fullName,
+              email: email,
+              phone: phone,
+            });
+          }
+        }
       }
     } catch {
       setStudentProfile({
         id: currentUser.id,
-        full_name: currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || 'Student',
+        full_name:
+          currentUser.user_metadata?.full_name ||
+          currentUser.user_metadata?.name ||
+          currentUser.email?.split('@')[0] ||
+          'Student',
         email: currentUser.email || '',
         phone: currentUser.user_metadata?.phone || '',
       });

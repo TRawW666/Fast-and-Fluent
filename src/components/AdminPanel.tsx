@@ -306,19 +306,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
   };
 
   const handleAdminOpenHomework = async (filePath: string) => {
+    const fileWindow = window.open('about:blank', '_blank');
     try {
       const { data, error } = await supabase.storage
         .from('homework')
         .createSignedUrl(filePath, 3600);
 
       if (error || !data?.signedUrl) {
+        fileWindow?.close();
         console.error('Error generating signed URL:', error);
         alert('Failed to generate secure link for file preview.');
         return;
       }
 
-      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+      if (fileWindow) {
+        fileWindow.location.href = data.signedUrl;
+      } else {
+        window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+      }
     } catch (err) {
+      fileWindow?.close();
       console.error('Unexpected error viewing homework file:', err);
       alert('An error occurred while opening the file.');
     }

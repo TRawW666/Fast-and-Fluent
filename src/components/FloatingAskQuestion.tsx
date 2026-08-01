@@ -65,6 +65,9 @@ export const FloatingAskQuestion: React.FC<FloatingAskQuestionProps> = ({ curren
 
     if (!validate()) return;
 
+    // Open blank window synchronously in response to user click to prevent popup blocking
+    const waWindow = window.open('about:blank', '_blank');
+
     setIsSubmitting(true);
 
     try {
@@ -79,6 +82,7 @@ export const FloatingAskQuestion: React.FC<FloatingAskQuestionProps> = ({ curren
       ]);
 
       if (error) {
+        waWindow?.close();
         console.error('Error inserting question into database:', error);
         setErrorMsg('Could not save your question. Please try again.');
         setIsSubmitting(false);
@@ -88,7 +92,12 @@ export const FloatingAskQuestion: React.FC<FloatingAskQuestionProps> = ({ curren
       // Redirect to WhatsApp
       const waMessage = `Hi, I have a question: ${question.trim()} - ${fullName.trim()}, ${phone.trim()}`;
       const whatsappUrl = `https://wa.me/919607405256?text=${encodeURIComponent(waMessage)}`;
-      window.open(whatsappUrl, '_blank');
+
+      if (waWindow) {
+        waWindow.location.href = whatsappUrl;
+      } else {
+        window.open(whatsappUrl, '_blank');
+      }
 
       setIsSubmitted(true);
       setIsSubmitting(false);
@@ -98,6 +107,7 @@ export const FloatingAskQuestion: React.FC<FloatingAskQuestionProps> = ({ curren
         handleClose();
       }, 3000);
     } catch (err) {
+      waWindow?.close();
       console.error('Unexpected error submitting question:', err);
       setErrorMsg('An unexpected error occurred. Please try again.');
       setIsSubmitting(false);
