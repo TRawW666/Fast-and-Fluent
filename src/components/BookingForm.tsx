@@ -9,7 +9,7 @@ interface BookingFormProps {
   onOpenPortal?: () => void;
 }
 
-export const BookingForm: React.FC<BookingFormProps> = ({ selectedCourse, onOpenPortal }) => {
+export const BookingForm: React.FC<BookingFormProps> = ({ onOpenPortal }) => {
   const { user, studentProfile, requireAuthForDemo } = useAuth();
 
   const [formData, setFormData] = useState<BookingFormData>({
@@ -35,21 +35,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({ selectedCourse, onOpen
     }
   }, [studentProfile]);
 
-  // Update preferredCourse when prop changes
-  useEffect(() => {
-    if (selectedCourse) {
-      setFormData((prev) => ({ ...prev, preferredCourse: selectedCourse }));
-    }
-  }, [selectedCourse]);
-
-  const courseOptions = [
-    'Free Demo Class',
-    'English for Kids',
-    'Beginner Course',
-    'Intermediate Course',
-    'Power Vocabulary Course'
-  ];
-
   const timeSlotOptions = [
     '09:00 AM - 10:00 AM',
     '10:00 AM - 11:00 AM',
@@ -72,10 +57,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({ selectedCourse, onOpen
       newErrors.phoneNumber = 'Please enter a valid phone number.';
     }
 
-    if (!formData.preferredCourse) {
-      newErrors.preferredCourse = 'Please select a course.';
-    }
-
     if (!formData.preferredDate) {
       newErrors.preferredDate = 'Please select a preferred date.';
     }
@@ -92,8 +73,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({ selectedCourse, onOpen
     // Open blank window synchronously in response to user click to prevent popup blocking
     const waWindow = window.open('about:blank', '_blank');
 
-    // If booking Free Demo Class and user is logged in, insert into bookings table
-    if (formData.preferredCourse === 'Free Demo Class' && user) {
+    // Insert Free Demo Class booking into database if user is logged in
+    if (user) {
       try {
         const { error: insertErr } = await supabase.from('bookings').insert([
           {
@@ -115,10 +96,10 @@ export const BookingForm: React.FC<BookingFormProps> = ({ selectedCourse, onOpen
     }
 
     // Construct formatted WhatsApp message
-    const waText = `*New Booking Request - Fast & Fluent English*\n\n` +
+    const waText = `*Free Demo Class Booking Request - Fast & Fluent English*\n\n` +
       `*Full Name:* ${formData.fullName.trim()}\n` +
       `*Phone:* ${formData.phoneNumber.trim()}\n` +
-      `*Course:* ${formData.preferredCourse}\n` +
+      `*Session:* Free Demo Class\n` +
       `*Preferred Date:* ${formData.preferredDate}\n` +
       `*Preferred Time:* ${formData.preferredTime}\n` +
       (formData.message.trim() ? `*Additional Message:* ${formData.message.trim()}\n` : '');
@@ -141,8 +122,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({ selectedCourse, onOpen
 
     if (!validate()) return;
 
-    // Check if Free Demo Class requires login
-    if (formData.preferredCourse === 'Free Demo Class' && !user) {
+    // Free Demo Class requires authentication
+    if (!user) {
       requireAuthForDemo(() => {
         proceedWithSubmission();
       });
@@ -154,8 +135,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({ selectedCourse, onOpen
 
   const handleReset = () => {
     setFormData({
-      fullName: '',
-      phoneNumber: '',
+      fullName: studentProfile?.full_name || '',
+      phoneNumber: studentProfile?.phone || '',
       preferredCourse: 'Free Demo Class',
       preferredDate: '',
       preferredTime: '10:00 AM - 11:00 AM',
@@ -181,13 +162,13 @@ export const BookingForm: React.FC<BookingFormProps> = ({ selectedCourse, onOpen
           <div className="text-center max-w-2xl mx-auto mb-10">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-yellow-100 text-[#1E40AF] font-extrabold text-xs uppercase tracking-wider mb-3 shadow-xs">
               <MessageCircle className="w-4 h-4 text-yellow-600" />
-              <span>Instant WhatsApp Booking</span>
+              <span>Book Free Demo Class</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#1E40AF] tracking-tight">
               Book Your Session with <span className="text-yellow-500">Sheetal Chauhan</span>
             </h2>
             <p className="mt-3 text-sm sm:text-base text-slate-600 font-medium">
-              Fill in your details below. You will be redirected directly to WhatsApp to confirm your booking time with Coach Sheetal.
+              Fill in your details below to schedule your 1-on-1 Free Demo Class. You will be redirected directly to WhatsApp to confirm your preferred time slot with Coach Sheetal.
             </p>
           </div>
 
@@ -198,21 +179,21 @@ export const BookingForm: React.FC<BookingFormProps> = ({ selectedCourse, onOpen
                 <CheckCircle2 className="w-10 h-10" />
               </div>
               <h3 className="text-2xl font-extrabold text-[#1E40AF] mb-2">
-                Booking Request Sent!
+                Demo Booking Request Sent!
               </h3>
               <p className="text-slate-600 text-sm sm:text-base mb-6 max-w-md mx-auto">
-                Thank you, <strong className="text-[#1E40AF]">{formData.fullName}</strong>! We've opened WhatsApp so you can send your booking details directly to Sheetal (+91 96074 05256).
+                Thank you, <strong className="text-[#1E40AF]">{formData.fullName}</strong>! We've opened WhatsApp so you can send your demo booking details directly to Sheetal (+91 96074 05256).
               </p>
               <div className="bg-white p-4 rounded-xl border border-slate-200 text-left text-xs sm:text-sm space-y-1.5 mb-6 text-slate-700 max-w-md mx-auto shadow-xs">
-                <div><strong className="text-[#1E40AF]">Selected Course:</strong> {formData.preferredCourse}</div>
+                <div><strong className="text-[#1E40AF]">Session Type:</strong> Free Demo Class</div>
                 <div><strong className="text-[#1E40AF]">Preferred Date:</strong> {formData.preferredDate}</div>
                 <div><strong className="text-[#1E40AF]">Preferred Time:</strong> {formData.preferredTime}</div>
               </div>
-              {formData.preferredCourse === 'Free Demo Class' && user && (
+              {user && (
                 <div className="bg-blue-50 border border-blue-200 text-blue-900 rounded-xl p-3.5 mb-6 text-xs sm:text-sm font-semibold max-w-md mx-auto flex items-center justify-between gap-2 text-left">
                   <div className="flex items-center gap-2.5">
                     <GraduationCap className="w-5 h-5 text-[#1E40AF] shrink-0" />
-                    <span>You're booked! You can view this anytime in <strong>My Portal</strong>.</span>
+                    <span>You're booked! You can view your demo session in <strong>My Portal</strong>.</span>
                   </div>
                   {onOpenPortal && (
                     <button
@@ -229,7 +210,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({ selectedCourse, onOpen
                 onClick={handleReset}
                 className="px-6 py-3 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-sm transition-all"
               >
-                Book Another Session
+                Book Another Demo Session
               </button>
             </div>
           ) : (
@@ -291,26 +272,19 @@ export const BookingForm: React.FC<BookingFormProps> = ({ selectedCourse, onOpen
                   )}
                 </div>
 
-                {/* Preferred Course Dropdown */}
+                {/* Session Type (Non-editable Label) */}
                 <div className="md:col-span-2">
-                  <label htmlFor="preferredCourse" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                    Preferred Course / Demo <span className="text-yellow-500">*</span>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    Session Type
                   </label>
                   <div className="relative">
                     <BookOpen className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
-                    <select
-                      id="preferredCourse"
-                      name="preferredCourse"
-                      value={formData.preferredCourse}
-                      onChange={(e) => setFormData({ ...formData, preferredCourse: e.target.value })}
-                      className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 text-slate-900 text-sm font-semibold border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:bg-white appearance-none cursor-pointer transition-all"
-                    >
-                      {courseOptions.map((course) => (
-                        <option key={course} value={course}>
-                          {course}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-100/90 text-slate-800 text-sm font-extrabold border border-slate-200 flex items-center justify-between">
+                      <span>Free Demo Class</span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-yellow-200 text-[#1E40AF] text-xs font-extrabold uppercase tracking-wide">
+                        100% Free
+                      </span>
+                    </div>
                   </div>
                 </div>
 
