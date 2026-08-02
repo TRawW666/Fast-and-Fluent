@@ -83,10 +83,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
   const [editingClass, setEditingClass] = useState<ClassItem | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
-  // Modal State for Delete Confirmation
+  // Modal State for Delete Class Confirmation
   const [classToDelete, setClassToDelete] = useState<ClassItem | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Modal State for Delete Student Confirmation
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [isDeletingStudent, setIsDeletingStudent] = useState<boolean>(false);
+  const [deleteStudentError, setDeleteStudentError] = useState<string | null>(null);
 
   // Form Fields
   const [formClassNumber, setFormClassNumber] = useState<number>(1);
@@ -725,17 +730,101 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
     }
   };
 
+  // Handle Toggle Student Enrollment Status
+  const handleToggleEnrollmentStatus = async (studentId: string, currentStatus?: 'active' | 'completed') => {
+    const newStatus = currentStatus === 'completed' ? 'active' : 'completed';
+
+    // Optimistically update local state
+    setStudents((prev) =>
+      prev.map((s) => (s.id === studentId ? { ...s, enrollment_status: newStatus } : s))
+    );
+
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ enrollment_status: newStatus })
+        .eq('id', studentId);
+
+      if (error) {
+        console.error('Error updating enrollment status:', error);
+        fetchStudentsAndBookings();
+      }
+    } catch (err) {
+      console.error('Unexpected error updating enrollment status:', err);
+      fetchStudentsAndBookings();
+    }
+  };
+
+  // Handle Confirm Delete Student
+  const handleConfirmDeleteStudent = async () => {
+    if (!studentToDelete) return;
+
+    setIsDeletingStudent(true);
+    setDeleteStudentError(null);
+
+    try {
+      // 1. Call Edge Function 'delete-student'
+      const { data, error } = await supabase.functions.invoke('delete-student', {
+        body: { studentId: studentToDelete.id },
+      });
+
+      if (error || data?.error) {
+        console.warn('Edge function error, performing direct database cleanup fallback:', error || data?.error);
+
+        // Fallback: direct database deletion if edge function is unprovisioned or errors
+        try {
+          const { data: fileList } = await supabase.storage.from('homework').list(studentToDelete.id);
+          if (fileList && fileList.length > 0) {
+            const paths = fileList.map((f) => `${studentToDelete.id}/${f.name}`);
+            await supabase.storage.from('homework').remove(paths);
+          }
+        } catch (stErr) {
+          console.warn('Storage cleanup warning:', stErr);
+        }
+
+        await supabase.from('homework_submissions').delete().eq('student_id', studentToDelete.id);
+        await supabase.from('attendance').delete().eq('student_id', studentToDelete.id);
+        await supabase.from('bookings').delete().eq('student_id', studentToDelete.id);
+        const { error: dbDeleteErr } = await supabase.from('students').delete().eq('id', studentToDelete.id);
+
+        if (dbDeleteErr) {
+          throw new Error(dbDeleteErr.message || 'Failed to delete student from database');
+        }
+      }
+
+      // Immediately update local state
+      setStudents((prev) => prev.filter((s) => s.id !== studentToDelete.id));
+      setBookings((prev) => prev.filter((b) => b.student_id !== studentToDelete.id));
+      setAllHomework((prev) => prev.filter((hw) => hw.student_id !== studentToDelete.id));
+      setStudentToDelete(null);
+    } catch (err: any) {
+      console.error('Error deleting student:', err);
+      setDeleteStudentError(err.message || 'An unexpected error occurred while deleting student.');
+    } finally {
+      setIsDeletingStudent(false);
+    }
+  };
+
   // Helper for student bookings
   const getStudentBookings = (studentId: string) => {
     return bookings.filter((b) => b.student_id === studentId);
   };
 
-  const filteredStudents = students.filter(
-    (student) =>
-      student.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.phone?.includes(searchQuery)
-  );
+  const filteredStudents = students
+    .filter(
+      (student) =>
+        student.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        student.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        student.phone?.includes(searchQuery)
+    )
+    .sort((a, b) => {
+      const aCompleted = a.enrollment_status === 'completed';
+      const bCompleted = b.enrollment_status === 'completed';
+      if (aCompleted !== bCompleted) {
+        return aCompleted ? 1 : -1; // active students first, completed students at bottom
+      }
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   const unseenBookingsCount = bookings.filter((b) => b.seen_by_admin === false).length;
   const unseenHomeworkCount = allHomework.filter((hw) => hw.seen_by_admin === false).length;
@@ -937,15 +1026,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
                   {filteredStudents.map((student) => {
                     const studentBookings = getStudentBookings(student.id);
                     const hasUnseenBookings = studentBookings.some((b) => b.seen_by_admin === false);
+                    const isCompleted = student.enrollment_status === 'completed';
 
                     return (
                       <div
                         key={student.id}
-                        className="bg-slate-50/70 rounded-2xl border border-slate-200 p-5 sm:p-6 transition-all hover:border-blue-300 hover:shadow-sm"
+                        className={`rounded-2xl border p-5 sm:p-6 transition-all ${
+                          isCompleted
+                            ? 'bg-slate-200/50 border-slate-300 shadow-2xs'
+                            : 'bg-slate-50/70 border-slate-200 hover:border-blue-300 hover:shadow-sm'
+                        }`}
                       >
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
                           <div className="flex items-start gap-3.5">
-                            <div className="w-12 h-12 rounded-2xl bg-[#1E40AF] text-white font-black text-lg flex items-center justify-center shrink-0 shadow-xs">
+                            <div className={`w-12 h-12 rounded-2xl font-black text-lg flex items-center justify-center shrink-0 shadow-xs ${
+                              isCompleted ? 'bg-slate-500 text-white' : 'bg-[#1E40AF] text-white'
+                            }`}>
                               {(student.full_name || 'S').charAt(0).toUpperCase()}
                             </div>
                             <div>
@@ -954,6 +1050,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
                                 {hasUnseenBookings && (
                                   <span className="px-2 py-0.5 bg-amber-400 text-slate-950 font-black text-[10px] rounded-md shadow-2xs uppercase">
                                     NEW
+                                  </span>
+                                )}
+                                {isCompleted && (
+                                  <span className="px-2.5 py-0.5 bg-slate-200 text-slate-700 border border-slate-300 font-extrabold text-[10px] rounded-md uppercase flex items-center gap-1 shadow-2xs">
+                                    <CheckCircle2 className="w-3 h-3 text-slate-500" />
+                                    <span>Completed</span>
                                   </span>
                                 )}
                                 <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-100 text-[#1E40AF] rounded-full uppercase">
@@ -983,14 +1085,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 self-start md:self-center">
+                          <div className="flex items-center gap-2 flex-wrap self-start md:self-center">
+                            {/* Toggle Enrollment Status Button */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleEnrollmentStatus(student.id, student.enrollment_status);
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border shadow-2xs cursor-pointer ${
+                                isCompleted
+                                  ? 'bg-slate-200 hover:bg-slate-300 text-slate-700 border-slate-300'
+                                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                              }`}
+                              title={isCompleted ? 'Mark enrollment as active' : 'Mark enrollment as complete'}
+                              id={`toggle-enrollment-${student.id}`}
+                            >
+                              <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>{isCompleted ? 'Mark as Active' : 'Mark Enrollment Complete'}</span>
+                            </button>
+
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleOpenMessageModal(student);
                               }}
-                              className="px-3.5 py-1.5 rounded-xl bg-[#1E40AF] hover:bg-blue-900 text-white font-bold text-xs shadow-2xs transition-all flex items-center gap-1.5"
+                              className="px-3.5 py-1.5 rounded-xl bg-[#1E40AF] hover:bg-blue-900 text-white font-bold text-xs shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
                               id={`message-student-${student.id}`}
                             >
                               <MessageSquare className="w-3.5 h-3.5 text-yellow-300" />
@@ -1001,6 +1122,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
                               <BookOpen className="w-3.5 h-3.5" />
                               <span>{studentBookings.length} Booking{studentBookings.length === 1 ? '' : 's'}</span>
                             </span>
+
+                            {/* Delete Student Icon Button */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setStudentToDelete(student);
+                                setDeleteStudentError(null);
+                              }}
+                              className="p-1.5 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-all cursor-pointer"
+                              title="Delete Student"
+                              id={`delete-student-${student.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
 
@@ -2157,6 +2293,74 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
                 >
                   {isDeleting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                   <span>{isDeleting ? 'Deleting...' : 'Delete Class'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal for Delete Student Confirmation */}
+      {studentToDelete && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-6 bg-red-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-white/10 rounded-xl">
+                  <Trash2 className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base sm:text-lg">Delete Student Account?</h3>
+                  <p className="text-xs text-red-100 font-medium">{studentToDelete.full_name || studentToDelete.email}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStudentToDelete(null)}
+                disabled={isDeletingStudent}
+                className="p-1.5 rounded-full hover:bg-white/20 text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-4">
+              {deleteStudentError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-medium">
+                  {deleteStudentError}
+                </div>
+              )}
+
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-slate-800 text-xs sm:text-sm font-medium space-y-1">
+                <p className="text-slate-900 font-bold">{studentToDelete.full_name}</p>
+                <p className="text-slate-500 text-xs">{studentToDelete.email}</p>
+              </div>
+
+              <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+                This will permanently delete <strong className="text-slate-900">{studentToDelete.full_name || 'this student'}</strong>'s account and all their data (bookings, homework files, attendance records). This cannot be undone.
+              </p>
+
+              {/* Modal Actions */}
+              <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setStudentToDelete(null)}
+                  disabled={isDeletingStudent}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteStudent}
+                  disabled={isDeletingStudent}
+                  className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md transition-all inline-flex items-center gap-2 cursor-pointer"
+                  id="confirm-delete-student-btn"
+                >
+                  {isDeletingStudent && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                  <span>{isDeletingStudent ? 'Deleting...' : 'Delete Permanently'}</span>
                 </button>
               </div>
             </div>

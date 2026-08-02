@@ -63,6 +63,7 @@ export interface Student {
   full_name: string;
   phone: string;
   created_at: string;
+  enrollment_status?: 'active' | 'completed';
 }
 
 export interface ClassItem {
