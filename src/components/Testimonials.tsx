@@ -1,17 +1,21 @@
 import React from 'react';
 import { TESTIMONIALS } from '../data/content';
-import { useInView } from '../hooks/useInView';
 import { Star, Quote } from 'lucide-react';
+import { motion } from 'motion/react';
 
 export const Testimonials: React.FC = () => {
-  const [ref, isInView] = useInView({ threshold: 0.15 });
-
   return (
     <section id="testimonials" className="py-20 bg-slate-50/70 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
+        <motion.div
+          initial={{ opacity: 0, y: 25 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="text-center max-w-3xl mx-auto mb-16"
+        >
           <span className="text-xs sm:text-sm font-bold uppercase tracking-widest text-blue-800 bg-blue-100/80 px-3.5 py-1.5 rounded-full inline-block mb-3 border border-blue-200">
             Real Transformations
           </span>
@@ -21,20 +25,19 @@ export const Testimonials: React.FC = () => {
           <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed">
             Read how Sheetal Chauhan's personalized coaching helped working professionals and students gain English speaking confidence.
           </p>
-        </div>
+        </motion.div>
 
         {/* Testimonials Grid */}
-        <div
-          ref={ref}
-          className="grid md:grid-cols-3 gap-8"
-        >
+        <div className="grid md:grid-cols-3 gap-8">
           {TESTIMONIALS.map((t, index) => (
-            <div
+            <motion.div
               key={t.id}
-              className={`bg-white rounded-3xl p-8 border border-blue-100 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col justify-between transform hover:-translate-y-1 ${
-                isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-              }`}
-              style={{ transitionDelay: `${index * 120}ms` }}
+              initial={{ opacity: 0, y: 25 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+              whileHover={{ y: -5 }}
+              className="bg-white rounded-3xl p-8 border border-blue-100 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
             >
               <div>
                 {/* Top Quote Icon & Rating */}
@@ -66,7 +69,7 @@ export const Testimonials: React.FC = () => {
                   </span>
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
 

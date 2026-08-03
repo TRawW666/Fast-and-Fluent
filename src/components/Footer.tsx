@@ -1,5 +1,5 @@
 import React from 'react';
-import { GraduationCap, Phone, Mail, MapPin, MessageSquare, Heart } from 'lucide-react';
+import { GraduationCap, Phone, Mail, MapPin, Heart, MessageCircle, Youtube, Instagram, Linkedin } from 'lucide-react';
 
 interface FooterProps {
   onNavClick: (href: string) => void;
@@ -14,6 +14,13 @@ export const Footer: React.FC<FooterProps> = ({ onNavClick }) => {
     { name: 'Testimonials', href: 'testimonials' },
     { name: 'FAQ', href: 'faq' },
     { name: 'Book Free Demo', href: 'booking' }
+  ];
+
+  const socialLinks = [
+    { name: 'WhatsApp', href: 'https://wa.me/919607405256', icon: MessageCircle, hoverBg: 'hover:bg-[#25D366] hover:text-white hover:shadow-[#25D366]/30', color: 'text-[#25D366]' },
+    { name: 'YouTube', href: 'https://www.youtube.com/@she_chauhan/', icon: Youtube, hoverBg: 'hover:bg-[#FF0000] hover:text-white hover:shadow-[#FF0000]/30', color: 'text-[#FF0000]' },
+    { name: 'Instagram', href: 'https://instagram.com', icon: Instagram, hoverBg: 'hover:bg-gradient-to-tr hover:from-[#f09433] hover:via-[#dc2743] hover:to-[#bc1888] hover:text-white hover:shadow-[#dc2743]/30', color: 'text-[#E4405F]' },
+    { name: 'LinkedIn', href: 'https://linkedin.com', icon: Linkedin, hoverBg: 'hover:bg-[#0A66C2] hover:text-white hover:shadow-[#0A66C2]/30', color: 'text-[#0A66C2]' }
   ];
 
   return (
@@ -44,25 +51,24 @@ export const Footer: React.FC<FooterProps> = ({ onNavClick }) => {
               Empowering students, job seekers, and working professionals to speak English naturally, fluently, and confidently without fear or hesitation.
             </p>
 
-            {/* Social Icons with Yellow Hover */}
+            {/* Social Icons with Brand Colors & Smooth Scale Effect */}
             <div className="flex items-center gap-3 pt-2">
-              {[
-                { name: 'WhatsApp', href: 'https://wa.me/919607405256' },
-                { name: 'YouTube', href: '#' },
-                { name: 'Instagram', href: '#' },
-                { name: 'LinkedIn', href: '#' }
-              ].map((s) => (
-                <a
-                  key={s.name}
-                  href={s.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-10 h-10 rounded-full bg-blue-900 text-blue-200 flex items-center justify-center hover:bg-yellow-400 hover:text-blue-950 transition-all duration-200 shadow-sm"
-                  aria-label={s.name}
-                >
-                  <MessageSquare className="w-4 h-4" />
-                </a>
-              ))}
+              {socialLinks.map((s) => {
+                const IconComponent = s.icon;
+                return (
+                  <a
+                    key={s.name}
+                    href={s.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`w-10 h-10 rounded-xl bg-blue-900/80 border border-blue-800 text-blue-100 flex items-center justify-center transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 shadow-sm hover:shadow-lg ${s.hoverBg}`}
+                    aria-label={s.name}
+                    title={s.name}
+                  >
+                    <IconComponent className="w-5 h-5 transition-transform duration-200" />
+                  </a>
+                );
+              })}
             </div>
           </div>
 

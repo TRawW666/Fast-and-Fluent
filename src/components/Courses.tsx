@@ -1,16 +1,14 @@
 import React from 'react';
 import { COURSES } from '../data/content';
 import { Course } from '../types';
-import { useInView } from '../hooks/useInView';
 import { Baby, BookOpen, TrendingUp, Zap, ArrowRight, Check } from 'lucide-react';
+import { motion } from 'motion/react';
 
 interface CoursesProps {
   onBookCourse: (courseName: string) => void;
 }
 
 export const Courses: React.FC<CoursesProps> = ({ onBookCourse }) => {
-  const [ref, isInView] = useInView({ threshold: 0.1 });
-
   const getCourseIcon = (iconName: Course['iconName']) => {
     switch (iconName) {
       case 'Baby':
@@ -31,7 +29,13 @@ export const Courses: React.FC<CoursesProps> = ({ onBookCourse }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
+        <motion.div
+          initial={{ opacity: 0, y: 25 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="text-center max-w-3xl mx-auto mb-16"
+        >
           <span className="text-xs sm:text-sm font-bold uppercase tracking-widest text-blue-800 bg-blue-100/80 px-3.5 py-1.5 rounded-full inline-block mb-3 border border-blue-200">
             Tailored Learning Paths
           </span>
@@ -41,20 +45,19 @@ export const Courses: React.FC<CoursesProps> = ({ onBookCourse }) => {
           <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed">
             Designed for learners at every stage of their English fluency journey. Select a course to book your free consultation.
           </p>
-        </div>
+        </motion.div>
 
         {/* Course Cards Grid */}
-        <div
-          ref={ref}
-          className="grid md:grid-cols-2 lg:grid-cols-4 gap-8"
-        >
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
           {COURSES.map((course, index) => (
-            <div
+            <motion.div
               key={course.id}
-              className={`bg-white rounded-3xl p-7 shadow-md hover:shadow-xl border border-blue-100 flex flex-col justify-between transition-all duration-300 transform hover:-translate-y-1.5 ${
-                isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-              }`}
-              style={{ transitionDelay: `${index * 120}ms` }}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+              whileHover={{ y: -6 }}
+              className="bg-white rounded-3xl p-7 shadow-md hover:shadow-xl border border-blue-100 flex flex-col justify-between transition-all duration-300"
             >
               <div>
                 {/* Icon & Level Tag & Price */}
@@ -102,12 +105,12 @@ export const Courses: React.FC<CoursesProps> = ({ onBookCourse }) => {
               <button
                 onClick={() => onBookCourse(course.name)}
                 id={`book-course-${course.id}`}
-                className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm shadow-sm hover:shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm shadow-sm hover:shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer"
               >
                 <span>Book Now</span>
                 <ArrowRight className="w-4 h-4 text-yellow-400" />
               </button>
-            </div>
+            </motion.div>
           ))}
         </div>
 

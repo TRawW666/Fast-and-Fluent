@@ -1,12 +1,10 @@
 import React from 'react';
 import { FEATURES } from '../data/content';
 import { Feature } from '../types';
-import { useInView } from '../hooks/useInView';
 import { Users, Mic, Compass, Clock, BookMarked, HeartHandshake } from 'lucide-react';
+import { motion } from 'motion/react';
 
 export const WhyUs: React.FC = () => {
-  const [ref, isInView] = useInView({ threshold: 0.15 });
-
   const getFeatureIcon = (iconName: Feature['iconName']) => {
     switch (iconName) {
       case 'Users':
@@ -31,7 +29,13 @@ export const WhyUs: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
+        <motion.div
+          initial={{ opacity: 0, y: 25 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="text-center max-w-3xl mx-auto mb-16"
+        >
           <span className="text-xs sm:text-sm font-bold uppercase tracking-widest text-blue-800 bg-blue-50 px-3.5 py-1.5 rounded-full inline-block mb-3 border border-blue-100">
             Why Fast & Fluent
           </span>
@@ -41,20 +45,19 @@ export const WhyUs: React.FC = () => {
           <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed">
             Unlike static pre-recorded courses, we focus on real-time interactive speaking practice that transforms your confidence from day one.
           </p>
-        </div>
+        </motion.div>
 
         {/* Feature Cards Grid */}
-        <div
-          ref={ref}
-          className="grid md:grid-cols-2 lg:grid-cols-3 gap-8"
-        >
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {FEATURES.map((feature, index) => (
-            <div
+            <motion.div
               key={feature.id}
-              className={`bg-white rounded-3xl p-8 border border-blue-100/80 shadow-xs hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 ${
-                isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-              }`}
-              style={{ transitionDelay: `${index * 100}ms` }}
+              initial={{ opacity: 0, y: 25 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: index * 0.08 }}
+              whileHover={{ y: -5 }}
+              className="bg-white rounded-3xl p-8 border border-blue-100/80 shadow-xs hover:shadow-xl transition-all duration-300"
             >
               <div className="w-14 h-14 rounded-2xl bg-blue-50/80 border border-blue-100 flex items-center justify-center mb-6 shadow-xs">
                 {getFeatureIcon(feature.iconName)}
@@ -65,7 +68,7 @@ export const WhyUs: React.FC = () => {
               <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
                 {feature.description}
               </p>
-            </div>
+            </motion.div>
           ))}
         </div>
 

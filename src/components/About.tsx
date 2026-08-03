@@ -1,19 +1,17 @@
 import React from 'react';
 import { INSTRUCTOR_INFO } from '../data/content';
-import { useInView } from '../hooks/useInView';
 import { Award, BookOpen, CheckCircle, Sparkles, UserCheck, Star } from 'lucide-react';
+import { motion } from 'motion/react';
 
 export const About: React.FC = () => {
-  const [ref, isInView] = useInView({ threshold: 0.2 });
-
   return (
     <section id="about" className="pt-28 pb-20 bg-white relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div
-          ref={ref}
-          className={`transition-all duration-700 transform ${
-            isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-          }`}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-100px' }}
+          transition={{ duration: 0.7, ease: 'easeOut' }}
         >
           {/* Section Header */}
           <div className="text-center max-w-3xl mx-auto mb-16">
@@ -21,7 +19,8 @@ export const About: React.FC = () => {
               Meet Your Lead Coach
             </span>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-blue-950 tracking-tight">
-              Learn Directly from <span className="text-blue-800">Sheetal Chauhan</span>
+              Learn Directly from <br />
+              <span className="text-blue-800">Sheetal Chauhan</span>
             </h2>
             <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed">
               Dedicated to helping learners speak English naturally, break communication barriers, and accelerate their career growth.
@@ -31,7 +30,13 @@ export const About: React.FC = () => {
           <div className="grid lg:grid-cols-12 gap-12 items-center">
             
             {/* Left Column: Avatar & Credentials Profile Card */}
-            <div className="lg:col-span-5 flex justify-center">
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="lg:col-span-5 flex justify-center"
+            >
               <div className="relative w-full max-w-sm">
                 
                 {/* Decorative Backdrops */}
@@ -60,15 +65,19 @@ export const About: React.FC = () => {
                     <span>Certified English Language Trainer</span>
                   </div>
 
-
-
                 </div>
 
               </div>
-            </div>
+            </motion.div>
 
             {/* Right Column: Detailed Bio & Teaching Philosophy */}
-            <div className="lg:col-span-7 flex flex-col justify-center">
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="lg:col-span-7 flex flex-col justify-center"
+            >
               
               <div className="inline-flex items-center gap-2 mb-4">
                 <Sparkles className="w-5 h-5 text-yellow-500" />
@@ -110,10 +119,10 @@ export const About: React.FC = () => {
                 </span>
               </div>
 
-            </div>
+            </motion.div>
 
           </div>
-        </div>
+        </motion.div>
       </div>
     </section>
   );
