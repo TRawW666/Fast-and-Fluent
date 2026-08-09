@@ -69,9 +69,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               id="nav-logo-portal"
               title="Return to Homepage"
             >
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#1E40AF] text-[#FACC15] flex items-center justify-center shadow-md group-hover:bg-blue-900 transition-colors">
-                <span className="font-black text-lg sm:text-xl italic leading-none">F</span>
-              </div>
+              <img src="/logo-icon-color.png" alt="Fast and Fluent English" className="h-9 w-9 sm:h-10 sm:w-10 object-contain" />
               <div className="hidden sm:flex flex-col">
                 <span className="font-extrabold text-base sm:text-lg text-[#1E40AF] tracking-tight leading-none">
                   Fast and Fluent English
@@ -172,9 +170,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center gap-2.5 group focus:outline-none focus:ring-2 focus:ring-[#1E40AF] rounded-lg p-1"
             id="nav-logo"
           >
-            <div className="w-10 h-10 rounded-lg bg-[#1E40AF] text-[#FACC15] flex items-center justify-center shadow-md group-hover:bg-blue-900 transition-colors">
-              <span className="font-black text-xl italic leading-none">F</span>
-            </div>
+            <img src="/logo-icon-color.png" alt="Fast and Fluent English" className="h-10 w-10 object-contain" />
             <div className="flex flex-col">
               <span className="font-extrabold text-lg sm:text-xl text-[#1E40AF] tracking-tight leading-none">
                 Fast and Fluent English

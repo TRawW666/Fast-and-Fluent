@@ -39,9 +39,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavClick }) => {
               }}
               className="inline-flex items-center gap-2.5"
             >
-              <div className="w-10 h-10 rounded-xl bg-blue-800 text-yellow-400 flex items-center justify-center shadow-md">
-                <GraduationCap className="w-6 h-6" />
-              </div>
+              <img src="/logo-icon-white.png" alt="Fast and Fluent English" className="h-10 w-10 object-contain" />
               <span className="font-extrabold text-2xl text-white tracking-tight">
                 Fast & Fluent <span className="text-yellow-400">English</span>
               </span>
