@@ -47,8 +47,12 @@ export const About: React.FC = () => {
                   
                   {/* Circular Avatar Placeholder */}
                   <div className="relative mb-6">
-                    <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br from-blue-800 via-blue-900 to-slate-900 flex items-center justify-center text-yellow-400 font-extrabold text-4xl shadow-lg ring-4 ring-yellow-400 ring-offset-4 ring-offset-white">
-                      <span>SC</span>
+                    <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-full overflow-hidden shadow-lg ring-4 ring-yellow-400 ring-offset-4 ring-offset-white">
+                      <img
+                        src="/sheetal-photo.jpg"
+                        alt={INSTRUCTOR_INFO.name}
+                        className="w-full h-full object-cover object-top rounded-full"
+                      />
                     </div>
                     {/* Certified Badge Overlay */}
                     <div className="absolute bottom-0 right-0 bg-yellow-400 text-blue-950 p-2 rounded-full shadow-md border-2 border-white">
