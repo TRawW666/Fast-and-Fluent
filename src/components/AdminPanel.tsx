@@ -31,6 +31,8 @@ import {
   UserCheck,
   AlertCircle,
   XCircle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -47,6 +49,15 @@ const COURSES = [
   'Power Vocabulary Course',
 ];
 
+const COURSE_GROUPS = [
+  'Free Demo Class',
+  'English for Kids',
+  'Beginner Course',
+  'Intermediate Course',
+  'Power Vocabulary Course',
+  'Not Yet Enrolled in a Course',
+] as const;
+
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
   const { signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<'students' | 'curriculum' | 'homework'>('students');
@@ -57,6 +68,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
   const [loadingStudents, setLoadingStudents] = useState<boolean>(true);
   const [studentsError, setStudentsError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [expandedStudentIds, setExpandedStudentIds] = useState<Set<string>>(new Set());
+
+  const toggleStudentExpanded = (studentId: string) => {
+    setExpandedStudentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(studentId)) {
+        next.delete(studentId);
+      } else {
+        next.add(studentId);
+      }
+      return next;
+    });
+  };
 
   // Attendance & Curriculum State Across All Courses
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
@@ -826,6 +850,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
+  const groupedStudents = COURSE_GROUPS.map((groupName) => {
+    const matchingStudents = filteredStudents.filter((student) => {
+      const studentBookings = getStudentBookings(student.id);
+      if (groupName === 'Not Yet Enrolled in a Course') {
+        return studentBookings.length === 0;
+      }
+      return studentBookings.some((b) => b.course_name === groupName);
+    });
+    return {
+      groupName,
+      students: matchingStudents,
+    };
+  }).filter((group) => group.students.length > 0);
+
   const unseenBookingsCount = bookings.filter((b) => b.seen_by_admin === false).length;
   const unseenHomeworkCount = allHomework.filter((hw) => hw.seen_by_admin === false).length;
 
@@ -1022,48 +1060,86 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-6">
-                  {filteredStudents.map((student) => {
-                    const studentBookings = getStudentBookings(student.id);
-                    const hasUnseenBookings = studentBookings.some((b) => b.seen_by_admin === false);
-                    const isCompleted = student.enrollment_status === 'completed';
+                <div className="space-y-8">
+                  {groupedStudents.map((group) => (
+                    <div key={group.groupName} className="space-y-3">
+                      {/* Section Header */}
+                      <div className="flex items-center gap-3 pt-2 pb-1">
+                        <h3 className="text-sm font-extrabold text-[#1E40AF]">
+                          {group.groupName} ({group.students.length})
+                        </h3>
+                        <div className="h-px bg-slate-200 flex-1" />
+                      </div>
 
-                    return (
-                      <div
-                        key={student.id}
-                        className={`rounded-2xl border p-5 sm:p-6 transition-all ${
-                          isCompleted
-                            ? 'bg-slate-200/50 border-slate-300 shadow-2xs'
-                            : 'bg-slate-50/70 border-slate-200 hover:border-blue-300 hover:shadow-sm'
-                        }`}
-                      >
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
-                          <div className="flex items-start gap-3.5">
-                            <div className={`w-12 h-12 rounded-2xl font-black text-lg flex items-center justify-center shrink-0 shadow-xs ${
-                              isCompleted ? 'bg-slate-500 text-white' : 'bg-[#1E40AF] text-white'
-                            }`}>
-                              {(student.full_name || 'S').charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <h3 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2 flex-wrap">
-                                <span>{student.full_name || 'Unnamed Student'}</span>
-                                {hasUnseenBookings && (
-                                  <span className="px-2 py-0.5 bg-amber-400 text-slate-950 font-black text-[10px] rounded-md shadow-2xs uppercase">
-                                    NEW
-                                  </span>
-                                )}
-                                {isCompleted && (
-                                  <span className="px-2.5 py-0.5 bg-slate-200 text-slate-700 border border-slate-300 font-extrabold text-[10px] rounded-md uppercase flex items-center gap-1 shadow-2xs">
-                                    <CheckCircle2 className="w-3 h-3 text-slate-500" />
-                                    <span>Completed</span>
-                                  </span>
-                                )}
-                                <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-100 text-[#1E40AF] rounded-full uppercase">
-                                  Student ID: {student.id.slice(0, 8)}...
-                                </span>
-                              </h3>
+                      {/* Students in this Group */}
+                      <div className="space-y-3">
+                        {group.students.map((student) => {
+                          const studentBookings = getStudentBookings(student.id);
+                          const hasUnseenBookings = studentBookings.some((b) => b.seen_by_admin === false);
+                          const isCompleted = student.enrollment_status === 'completed';
+                          const isExpanded = expandedStudentIds.has(student.id);
 
-                              <div className="flex flex-wrap items-center gap-4 mt-1.5 text-xs font-semibold text-slate-600">
+                          return (
+                            <div
+                              key={`${group.groupName}-${student.id}`}
+                              className={`rounded-2xl border transition-all ${
+                                isCompleted
+                                  ? 'bg-slate-200/50 border-slate-300 shadow-2xs'
+                                  : 'bg-slate-50/70 border-slate-200 hover:border-blue-300 hover:shadow-sm'
+                              }`}
+                            >
+                              {/* Single compact clickable row */}
+                              <div
+                                onClick={() => toggleStudentExpanded(student.id)}
+                                className="w-full flex items-center justify-between gap-3 p-4 sm:p-5 cursor-pointer select-none"
+                              >
+                                <div className="flex items-center gap-3.5 min-w-0">
+                                  <div
+                                    className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl font-black text-lg flex items-center justify-center shrink-0 shadow-xs ${
+                                      isCompleted ? 'bg-slate-500 text-white' : 'bg-[#1E40AF] text-white'
+                                    }`}
+                                  >
+                                    {(student.full_name || 'S').charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                    <span className="text-base sm:text-lg font-black text-slate-900">
+                                      {student.full_name || 'Unnamed Student'}
+                                    </span>
+                                    {hasUnseenBookings && (
+                                      <span className="px-2 py-0.5 bg-amber-400 text-slate-950 font-black text-[10px] rounded-md shadow-2xs uppercase">
+                                        NEW
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="shrink-0 p-1 text-slate-400">
+                                  {isExpanded ? (
+                                    <ChevronUp className="w-5 h-5 text-[#1E40AF]" />
+                                  ) : (
+                                    <ChevronDown className="w-5 h-5 text-slate-400" />
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Expanded Detail Content */}
+                              {isExpanded && (
+                                <div className="px-5 sm:px-6 pb-5 sm:pb-6 pt-2 border-t border-slate-200/80">
+                                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
+                                    <div>
+                                      <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                        {isCompleted && (
+                                          <span className="px-2.5 py-0.5 bg-slate-200 text-slate-700 border border-slate-300 font-extrabold text-[10px] rounded-md uppercase flex items-center gap-1 shadow-2xs">
+                                            <CheckCircle2 className="w-3 h-3 text-slate-500" />
+                                            <span>Completed</span>
+                                          </span>
+                                        )}
+                                        <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-100 text-[#1E40AF] rounded-full uppercase">
+                                          Student ID: {student.id.slice(0, 8)}...
+                                        </span>
+                                      </div>
+
+                                      <div className="flex flex-wrap items-center gap-4 mt-1.5 text-xs font-semibold text-slate-600">
                                 <span className="flex items-center gap-1.5">
                                   <Mail className="w-3.5 h-3.5 text-[#1E40AF]" />
                                   {student.email}
@@ -1083,7 +1159,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
                                 </span>
                               </div>
                             </div>
-                          </div>
 
                           <div className="flex items-center gap-2 flex-wrap self-start md:self-center">
                             {/* Toggle Enrollment Status Button */}
@@ -1505,10 +1580,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onGoHome }) => {
 
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
             </div>
           </div>
         )}
