@@ -69,7 +69,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               id="nav-logo-portal"
               title="Return to Homepage"
             >
-              <img src="/logo-icon-color.png" alt="Fast and Fluent English" className="h-9 w-9 sm:h-10 sm:w-10 object-contain" />
+              <img src="/logo-icon-color.webp" alt="Fast and Fluent English" className="h-9 w-9 sm:h-10 sm:w-10 object-contain" />
               <div className="hidden sm:flex flex-col">
                 <span className="font-extrabold text-base sm:text-lg text-[#1E40AF] tracking-tight leading-none">
                   Fast and Fluent English
@@ -170,7 +170,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center gap-2.5 group focus:outline-none focus:ring-2 focus:ring-[#1E40AF] rounded-lg p-1"
             id="nav-logo"
           >
-            <img src="/logo-icon-color.png" alt="Fast and Fluent English" className="h-10 w-10 object-contain" />
+            <img src="/logo-icon-color.webp" alt="Fast and Fluent English" className="h-10 w-10 object-contain" />
             <div className="flex flex-col">
               <span className="font-extrabold text-lg sm:text-xl text-[#1E40AF] tracking-tight leading-none">
                 Fast and Fluent English

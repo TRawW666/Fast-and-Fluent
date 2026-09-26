@@ -49,7 +49,7 @@ export const About: React.FC = () => {
                   <div className="relative mb-6">
                     <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-full overflow-hidden shadow-lg ring-4 ring-yellow-400 ring-offset-4 ring-offset-white">
                       <img
-                        src="/sheetal-photo.jpg"
+                        src="/sheetal-photo.webp"
                         alt={INSTRUCTOR_INFO.name}
                         className="w-full h-full object-cover object-top rounded-full"
                       />
