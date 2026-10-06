@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
+import { Mascot } from 'page-mascot';
 
 interface HeroProps {
   onBookClick: (courseName?: string) => void;
@@ -85,12 +86,27 @@ export const Hero: React.FC<HeroProps> = ({ onBookClick, onViewCoursesClick }) =
             ))}
           </motion.div>
 
+          {/* Animated Mascot Character */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.45, ease: 'easeOut' }}
+            className="hidden sm:flex justify-center mb-6"
+          >
+            <Mascot
+              directions="/mascots/glasses-directions.webp"
+              reactions="/mascots/glasses-reactions.webp"
+              size={140}
+              label="Fast and Fluent mascot"
+            />
+          </motion.div>
+
           {/* Primary & Secondary Action CTAs */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.5 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto"
+            className="flex flex-col items-center justify-center gap-3 w-full"
           >
             <button
               onClick={() => onBookClick('Free Demo Class')}
@@ -104,9 +120,10 @@ export const Hero: React.FC<HeroProps> = ({ onBookClick, onViewCoursesClick }) =
             <button
               onClick={onViewCoursesClick}
               id="hero-secondary-cta"
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-white hover:bg-blue-50 text-[#1E40AF] border-2 border-[#1E40AF] font-bold text-lg shadow-xs hover:shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer"
+              className="group inline-flex items-center justify-center gap-1.5 text-sm sm:text-base font-bold text-[#1E40AF] hover:text-blue-800 hover:underline underline-offset-4 transition-all cursor-pointer"
             >
               <span>View Courses</span>
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
             </button>
           </motion.div>
 
